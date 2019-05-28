@@ -1,0 +1,271 @@
+#####导入需要的包
+import numpy as np
+from dateutil.parser import parse
+import pandas as pd
+import xgboost as xgb
+from xgboost.sklearn import XGBClassifier
+from sklearn import cross_validation, metrics
+from sklearn.grid_search import GridSearchCV
+import matplotlib.pylab as plt
+from matplotlib.pylab import rcParams
+import time
+from multiprocessing import cpu_count
+import warnings
+warnings.filterwarnings('ignore')
+#####导入数据
+test1  = open('/mnt/sd01/sjjs_fs31/Contest8_Training_1.txt')
+test2  = open('/mnt/sd01/sjjs_fs31/Contest8_Training_2.txt')
+test3  = open('/mnt/sd01/sjjs_fs31/Contest8_Training_3.txt')
+test4  = open('/mnt/sd01/sjjs_fs31/Contest8_Training_4.txt')
+
+fore1  = open('/mnt/sd01/sjjs_fs31/Contest8_Backups_1.txt')
+fore2  = open('/mnt/sd01/sjjs_fs31/Contest8_Backups_2.txt')
+fore3  = open('/mnt/sd01/sjjs_fs31/Contest8_Backups_3.txt')
+fore4  = open('/mnt/sd01/sjjs_fs31/Contest8_Backups_4.txt')
+t1 = pd.read_csv(test1,sep='|',header=None)
+t1.columns = ['MONTH_ID','MSISDN','UP_TIME','HIS_IMEI1','HIS_IMSI1','HIS_FACTORY_ID1','HIS_TERM_ID1','HIS_FACTORY_DESC1','HIS_TERM_DESC1','HIS_CITY_NO1','HIS_UP_TIME1','HIS_IS_COPY1','HIS_IMEI2','HIS_IMSI2','HIS_FACTORY_ID2','HIS_TERM_ID2','HIS_FACTORY_DESC2','HIS_TERM_DESC2','HIS_CITY_NO2','HIS_UP_TIME2','HIS_IS_COPY2','HIS_IMEI3','HIS_IMSI3','HIS_FACTORY_ID3','HIS_TERM_ID3','HIS_FACTORY_DESC3','HIS_TERM_DESC3','HIS_CITY_NO3','HIS_UP_TIME3','HIS_IS_COPY3','HIS_IMEI4','HIS_IMSI4','HIS_FACTORY_ID4','HIS_TERM_ID4','HIS_FACTORY_DESC4','HIS_TERM_DESC4','HIS_CITY_NO4','HIS_UP_TIME4','HIS_IS_COPY4','HIS_IMEI5','HIS_IMSI5','HIS_FACTORY_ID5','HIS_TERM_ID5','HIS_FACTORY_DESC5','HIS_TERM_DESC5','HIS_CITY_NO5','HIS_UP_TIME5','HIS_IS_COPY5']
+t2 = pd.read_csv(test2,sep='|',header=None)
+t2.columns = ['MONTH_ID','USER_ID','DEVICE_NUMBER','PRODUCT_CLASS','IS_CARD','IS_ADD','ACCT_FEE','IS_ZNZD','IS_AGREE']
+t3 = pd.read_csv(test3,sep='|',header=None)
+t3.columns = ['MONTH_ID','USER_ID','CUST_ID','CUST_TYPE','USECUST_ID','SERVICE_TYPE','BRAND_ID','USER_DIFF_CODE','DEVICE_NUMBER','NET_TYPE_CBSS','SCORE_VALUE','CREDIT_CLASS','BASIC_CREDIT_VALUE','CREDIT_VALUE','IS_ACCT','PAY_MODE','INNET_DATE','OPER_DATE','OPEN_MODE','USER_STATUS','USER_STATUS_CBSS','CHANNEL_ID','CHANNEL_TYPE','INNET_METHOD','IS_INNET','INNET_MONTHS']
+t4 = pd.read_csv(test4,sep='|',header=None)
+t4.columns = ['MONTH_ID','CUST_ID','IS_INNET','CHNL_ID','CHNL_KIND_ID','AREA_ID','PAY_MODE','CUST_SEX','CERT_AGE','CONSTELLATION_DESC']
+f1 = pd.read_csv(fore1,sep='|',header=None)
+f1.columns = ['MONTH_ID','MSISDN','UP_TIME','HIS_IMEI1','HIS_IMSI1','HIS_FACTORY_ID1','HIS_TERM_ID1','HIS_FACTORY_DESC1','HIS_TERM_DESC1','HIS_CITY_NO1','HIS_UP_TIME1','HIS_IS_COPY1','HIS_IMEI2','HIS_IMSI2','HIS_FACTORY_ID2','HIS_TERM_ID2','HIS_FACTORY_DESC2','HIS_TERM_DESC2','HIS_CITY_NO2','HIS_UP_TIME2','HIS_IS_COPY2','HIS_IMEI3','HIS_IMSI3','HIS_FACTORY_ID3','HIS_TERM_ID3','HIS_FACTORY_DESC3','HIS_TERM_DESC3','HIS_CITY_NO3','HIS_UP_TIME3','HIS_IS_COPY3','HIS_IMEI4','HIS_IMSI4','HIS_FACTORY_ID4','HIS_TERM_ID4','HIS_FACTORY_DESC4','HIS_TERM_DESC4','HIS_CITY_NO4','HIS_UP_TIME4','HIS_IS_COPY4','HIS_IMEI5','HIS_IMSI5','HIS_FACTORY_ID5','HIS_TERM_ID5','HIS_FACTORY_DESC5','HIS_TERM_DESC5','HIS_CITY_NO5','HIS_UP_TIME5','HIS_IS_COPY5']
+f2 = pd.read_csv(fore2,sep='|',header=None)
+f2.columns = ['MONTH_ID','USER_ID','DEVICE_NUMBER','PRODUCT_CLASS','IS_CARD','IS_ADD','ACCT_FEE','IS_ZNZD','IS_AGREE']
+f3 = pd.read_csv(fore3,sep='|',header=None)
+f3.columns = ['MONTH_ID','USER_ID','CUST_ID','CUST_TYPE','USECUST_ID','SERVICE_TYPE','BRAND_ID','USER_DIFF_CODE','DEVICE_NUMBER','NET_TYPE_CBSS','SCORE_VALUE','CREDIT_CLASS','BASIC_CREDIT_VALUE','CREDIT_VALUE','IS_ACCT','PAY_MODE','INNET_DATE','OPER_DATE','OPEN_MODE','USER_STATUS','USER_STATUS_CBSS','CHANNEL_ID','CHANNEL_TYPE','INNET_METHOD','IS_INNET','INNET_MONTHS']
+f4 = pd.read_csv(fore4,sep='|',header=None)
+f4.columns = ['MONTH_ID','CUST_ID','IS_INNET','CHNL_ID','CHNL_KIND_ID','AREA_ID','PAY_MODE','CUST_SEX','CERT_AGE','CONSTELLATION_DESC']
+#print.apply(lambda x: sum(x.isnull())))(t1.head(20))
+
+#########去重
+f2 = f2.drop_duplicates()
+t2 = t2.drop_duplicates()
+#print(t2.MONTH_ID.value_counts())
+###################################################t2
+t2_02 = t2[t2['MONTH_ID']==201802]
+t2_02.columns = ['MONTH_ID_02','USER_ID','DEVICE_NUMBER','PRODUCT_CLASS_02','IS_CARD_02','IS_ADD_02','ACCT_FEE_02','IS_ZNZD_02','IS_AGREE_02']
+t2_01 = t2[t2['MONTH_ID']==201801]
+t2_01.columns = ['MONTH_ID_01','USER_ID','DEVICE_NUMBER','PRODUCT_CLASS_01','IS_CARD_01','IS_ADD_01','ACCT_FEE_01','IS_ZNZD_01','IS_AGREE_01']
+t2_re = pd.merge(t2_02,t2_01,on = ['USER_ID','DEVICE_NUMBER'],how = 'outer')
+###################################################f2
+f2_02 = f2[f2['MONTH_ID']==201802]
+f2_02.columns = ['MONTH_ID_02','USER_ID','DEVICE_NUMBER','PRODUCT_CLASS_02','IS_CARD_02','IS_ADD_02','ACCT_FEE_02','IS_ZNZD_02','IS_AGREE_02']
+f2_01 = f2[f2['MONTH_ID']==201801]
+f2_01.columns = ['MONTH_ID_01','USER_ID','DEVICE_NUMBER','PRODUCT_CLASS_01','IS_CARD_01','IS_ADD_01','ACCT_FEE_01','IS_ZNZD_01','IS_AGREE_01']
+f2_re = pd.merge(f2_02,f2_01,on = ['USER_ID','DEVICE_NUMBER'],how = 'outer')
+###################################################t1
+t1_re = t1[t1['MONTH_ID']==201803]
+t1_re.drop(['HIS_IMEI1','HIS_IMSI1','HIS_FACTORY_ID1','HIS_TERM_ID1','HIS_CITY_NO1','HIS_CITY_NO2','HIS_CITY_NO3','HIS_CITY_NO4','HIS_CITY_NO5','HIS_IMEI2','HIS_IMSI2','HIS_FACTORY_ID2','HIS_TERM_ID2','HIS_IMEI3','HIS_IMSI3','HIS_FACTORY_ID3','HIS_TERM_ID3','HIS_IMEI4','HIS_IMSI4','HIS_FACTORY_ID4','HIS_TERM_ID4','HIS_IMEI5','HIS_IMSI5','HIS_FACTORY_ID5','HIS_TERM_ID5'],axis = 1,inplace =True)
+#print(t1_re.head(20))
+###################################################f1
+f1_re = f1[f1['MONTH_ID']==201803]
+f1_re.columns = ['MONTH_ID','MSISDN','UP_TIME','HIS_IMEI1','HIS_IMSI1','HIS_FACTORY_ID1','HIS_TERM_ID1','HIS_FACTORY_DESC1','HIS_TERM_DESC1','HIS_CITY_NO1','HIS_UP_TIME1','HIS_IS_COPY1','HIS_IMEI2','HIS_IMSI2','HIS_FACTORY_ID2','HIS_TERM_ID2','HIS_FACTORY_DESC2','HIS_TERM_DESC2','HIS_CITY_NO2','HIS_UP_TIME2','HIS_IS_COPY2','HIS_IMEI3','HIS_IMSI3','HIS_FACTORY_ID3','HIS_TERM_ID3','HIS_FACTORY_DESC3','HIS_TERM_DESC3','HIS_CITY_NO3','HIS_UP_TIME3','HIS_IS_COPY3','HIS_IMEI4','HIS_IMSI4','HIS_FACTORY_ID4','HIS_TERM_ID4','HIS_FACTORY_DESC4','HIS_TERM_DESC4','HIS_CITY_NO4','HIS_UP_TIME4','HIS_IS_COPY4','HIS_IMEI5','HIS_IMSI5','HIS_FACTORY_ID5','HIS_TERM_ID5','HIS_FACTORY_DESC5','HIS_TERM_DESC5','HIS_CITY_NO5','HIS_UP_TIME5','HIS_IS_COPY5']
+f1_re.drop(['HIS_IMEI1','HIS_IMSI1','HIS_FACTORY_ID1','HIS_TERM_ID1','HIS_CITY_NO1','HIS_CITY_NO2','HIS_CITY_NO3','HIS_CITY_NO4','HIS_CITY_NO5','HIS_IMEI2','HIS_IMSI2','HIS_FACTORY_ID2','HIS_TERM_ID2','HIS_IMEI3','HIS_IMSI3','HIS_FACTORY_ID3','HIS_TERM_ID3','HIS_IMEI4','HIS_IMSI4','HIS_FACTORY_ID4','HIS_TERM_ID4','HIS_IMEI5','HIS_IMSI5','HIS_FACTORY_ID5','HIS_TERM_ID5'],axis = 1,inplace =True)
+#print(f1_re.head(20))
+################################################t3&t4
+del t3['MONTH_ID']
+del t3['PAY_MODE']
+del t3['IS_INNET']
+del t4['MONTH_ID']
+train = pd.merge(t3,t4,on = 'CUST_ID',how = 'outer')
+t1_re.rename(columns={'MSISDN':'DEVICE_NUMBER'},inplace = True)###修改列名
+train_1 = pd.merge(t1_re,t2_re,on = 'DEVICE_NUMBER',how = 'outer')
+train = pd.merge(train,train_1,on = 'USER_ID',how = 'outer')
+################################################f3&f4
+del f3['MONTH_ID']
+del f3['PAY_MODE']
+del f3['IS_INNET']
+del f4['MONTH_ID']
+test = pd.merge(f3,f4,on = 'CUST_ID',how = 'outer')
+f1_re.rename(columns={'MSISDN':'DEVICE_NUMBER'},inplace = True)###修改列名
+test_1 = pd.merge(f1_re,f2_re,on = 'DEVICE_NUMBER',how = 'outer')
+test = pd.merge(test,test_1,on = 'USER_ID',how = 'outer')
+###########################################整理宽表
+train['source']= 'train'
+test['source'] = 'test'
+data=pd.concat([train, test],ignore_index=True)
+#########################################################缺失值处理
+data['HIS_FACTORY_DESC2'] = data['HIS_FACTORY_DESC2'].fillna(0)
+data['HIS_TERM_DESC2'] = data['HIS_TERM_DESC2'].fillna(0)
+data['HIS_UP_TIME2'] = data['HIS_UP_TIME2'].fillna('20000101')
+data['HIS_IS_COPY2'] = data['HIS_IS_COPY2'].fillna(0)
+data['HIS_FACTORY_DESC3'] = data['HIS_FACTORY_DESC3'].fillna(0)
+data['HIS_TERM_DESC3'] = data['HIS_TERM_DESC3'].fillna(0)
+data['HIS_UP_TIME3'] = data['HIS_UP_TIME3'].fillna('20000101')
+data['HIS_IS_COPY3'] = data['HIS_IS_COPY3'].fillna(0)
+data['HIS_FACTORY_DESC4'] = data['HIS_FACTORY_DESC4'].fillna(0)
+data['HIS_TERM_DESC4'] = data['HIS_TERM_DESC4'].fillna(0)
+data['HIS_UP_TIME4'] = data['HIS_UP_TIME4'].fillna('20000101')
+data['HIS_IS_COPY4'] = data['HIS_IS_COPY4'].fillna(0)
+data['HIS_FACTORY_DESC5'] = data['HIS_FACTORY_DESC5'].fillna(0)
+data['HIS_TERM_DESC5'] = data['HIS_TERM_DESC5'].fillna(0)
+data['HIS_UP_TIME5'] = data['HIS_UP_TIME5'].fillna('20000101')
+data['HIS_IS_COPY5'] = data['HIS_IS_COPY5'].fillna(0)
+############
+data['PRODUCT_CLASS_01'] = data['PRODUCT_CLASS_01'].fillna(method='pad')
+data['IS_CARD_01'] = data['IS_CARD_01'].fillna(method='pad')
+data['IS_ADD_01'] = data['IS_ADD_01'].fillna(method='pad')
+data['ACCT_FEE_01'] = data['ACCT_FEE_01'].fillna(method='pad')
+data['IS_ZNZD_01'] = data['IS_ZNZD_01'].fillna(method='pad')
+data['IS_AGREE_01'] = data['IS_AGREE_01'].fillna(method='pad')
+data['MONTH_ID_01'] = data['MONTH_ID_01'].fillna('201801')
+######
+data['INNET_METHOD']=data['INNET_METHOD'].fillna(method = 'ffill')#####按照前一个信息填充
+data['CHNL_KIND_ID']=data['CHNL_KIND_ID'].fillna(method = 'ffill')#####按照前一个信息填充
+data['CONSTELLATION_DESC']=data['CONSTELLATION_DESC'].fillna(method='pad')
+data['CUST_SEX']=data['CUST_SEX'].fillna(method='pad')
+data['CERT_AGE']=data['CERT_AGE'].fillna(data['CERT_AGE'].mean())
+#########################################################
+#print(data.shape)
+#print(data.apply(lambda x: sum(x.isnull())))
+'''
+for columname in data.columns:
+    if data[columname].count() != len(data):
+         loc = data[columname][data[columname].isnull().values==True].index.tolist()
+         print(columname)
+'''
+#########################################################剔除不需要的字段
+data.drop(['CUST_ID', 'CUST_TYPE', 'USECUST_ID', 'DEVICE_NUMBER_x','MONTH_ID','DEVICE_NUMBER_y'],axis = 1,inplace = True)
+#print(data.dtypes)
+#print(data.head(50))
+#print(test.HIS_FACTORY_DESC1.value_counts())
+
+########################################################时间字段转换格式
+data['HIS_UP_TIME1_1'] = data['HIS_UP_TIME1']
+data['HIS_UP_TIME1'] = data['HIS_UP_TIME1'].astype(np.int32)
+data['HIS_UP_TIME2'] = data['HIS_UP_TIME2'].astype(np.int32)
+data['HIS_UP_TIME3'] = data['HIS_UP_TIME3'].astype(np.int32)
+data['HIS_UP_TIME4'] = data['HIS_UP_TIME4'].astype(np.int32)
+data['HIS_UP_TIME5'] = data['HIS_UP_TIME5'].astype(np.int32)
+#data['UP_TIME'] = data['UP_TIME'].astype(np.int32)
+##############################################################################修改日期字段类型
+data['HIS_UP_TIME1'] = pd.to_datetime(data['HIS_UP_TIME1'], format = '%Y%m%d')
+data['HIS_UP_TIME2'] = pd.to_datetime(data['HIS_UP_TIME2'], format = '%Y%m%d')
+data['HIS_UP_TIME3'] = pd.to_datetime(data['HIS_UP_TIME3'], format = '%Y%m%d')
+data['HIS_UP_TIME4'] = pd.to_datetime(data['HIS_UP_TIME4'], format = '%Y%m%d')
+data['HIS_UP_TIME5'] = pd.to_datetime(data['HIS_UP_TIME5'], format = '%Y%m%d')
+#print(data[['HIS_UP_TIME1','HIS_UP_TIME2','HIS_UP_TIME3']])
+data['1_2_del_cha'] = (data['HIS_UP_TIME1'] - data['HIS_UP_TIME2'])#.apply(pd.to_numeric,errors='ignore')
+data['2_3_del_cha'] = (data['HIS_UP_TIME2'] - data['HIS_UP_TIME3'])#.apply(pd.to_numeric,errors='ignore')
+data['3_4_del_cha'] = (data['HIS_UP_TIME3'] - data['HIS_UP_TIME4'])#.apply(pd.to_numeric,errors='ignore')
+data['4_5_del_cha'] = (data['HIS_UP_TIME4'] - data['HIS_UP_TIME5'])#.apply(pd.to_numeric,errors='ignore')
+data['1_2_del_cha'] = (data['1_2_del_cha'] / np.timedelta64(1, 'D')).astype(int)
+data['2_3_del_cha'] = (data['2_3_del_cha'] / np.timedelta64(1, 'D')).astype(int)
+data['3_4_del_cha'] = (data['3_4_del_cha'] / np.timedelta64(1, 'D')).astype(int)
+data['4_5_del_cha'] = (data['4_5_del_cha'] / np.timedelta64(1, 'D')).astype(int)
+##################################################清理无效数据
+data['1_2_del_cha'][data['1_2_del_cha']>=1500]  = 0
+data['2_3_del_cha'][data['2_3_del_cha']>=1500]  = 0
+data['3_4_del_cha'][data['3_4_del_cha']>=1500]  = 0
+data['4_5_del_cha'][data['4_5_del_cha']>=1500]  = 0
+#######################################建立临时表
+view_1 = data[['1_2_del_cha','HIS_TERM_DESC1']]
+view_1 = view_1.groupby(view_1['HIS_TERM_DESC1']).mean()###分类
+view_1 = view_1.reset_index()###重新设置index成为dataframe
+view_2 = data[['2_3_del_cha','HIS_TERM_DESC2']]
+view_2 = view_2.groupby(view_2['HIS_TERM_DESC2']).mean()###分类
+view_2 = view_2.reset_index()###重新设置index成为dataframe
+view_3 = data[['3_4_del_cha','HIS_TERM_DESC3']]
+view_3 = view_3.groupby(view_3['HIS_TERM_DESC3']).mean()###分类
+view_3 = view_3.reset_index()###重新设置index成为dataframe
+view_4 = data[['4_5_del_cha','HIS_TERM_DESC4']]
+view_4 = view_4.groupby(view_4['HIS_TERM_DESC4']).mean()###分类
+view_4 = view_4.reset_index()###重新设置index成为dataframe
+view_1.rename(columns={'HIS_TERM_DESC1':'HIS_TERM_DESC'},inplace = True)###修改列名
+view_2.rename(columns={'HIS_TERM_DESC2':'HIS_TERM_DESC'},inplace = True)###修改列名
+view_3.rename(columns={'HIS_TERM_DESC3':'HIS_TERM_DESC'},inplace = True)###修改列名
+view_4.rename(columns={'HIS_TERM_DESC4':'HIS_TERM_DESC'},inplace = True)###修改列名
+view_re = pd.merge(view_1,view_2,on = ['HIS_TERM_DESC'],how = 'outer')
+view_re = pd.merge(view_re,view_3,on =['HIS_TERM_DESC'],how = 'outer')
+view_re = pd.merge(view_re,view_4,on =['HIS_TERM_DESC'],how = 'outer')
+#vier_re = data['CERT_AGE'].fillna(data['CERT_AGE'].mean())
+#view_re = view_re.stack().unstack(0)
+#view_re = view_re.T
+view_re['AVE'] = view_re.mean(1).astype(int)
+#view_re = view_re[['HIS_TERM_DESC','AVE']]
+print(view_re.columns)
+print(view_re.shape)
+print(view_re.head(50))
+
+import datetime
+import time
+#train = data.loc[data['source']=='train']
+#test = data.loc[data['source']=='test']
+#train.drop('source',axis=1,inplace=True)
+#test.drop('source',axis=1,inplace=True)
+test.rename(columns={'HIS_TERM_DESC1':'HIS_TERM_DESC','HIS_FACTORY_DESC1':'HIS_FACTORY_DESC'},inplace = True)###修改列名
+test = pd.merge(test,view_re,on = 'HIS_TERM_DESC',how = 'left')
+#test = test.join(view_re, on='HIS_TERM_DESC')
+test['AVE'] = test['AVE']*np.timedelta64(1, 'D')
+test['AVE'] = test['AVE'].fillna(method = 'ffill')
+test['HIS_UP_TIME1'] = pd.to_datetime(test['HIS_UP_TIME1'], format = '%Y%m%d')
+test['UP_TIME'] = pd.to_datetime(test['UP_TIME'], format = '%Y%m%d')
+test['UP_TIME'] = test['AVE'] + test['HIS_UP_TIME1']
+#test['UP_TIME'] = test['UP_TIME'].fillna(time.strptime('2018-03-15', "%Y-%m-%d"))
+#datetime.strptime('2018-03-15',"%Y%m%d"))
+test['UP_TIME'] = pd.to_datetime(test['UP_TIME'], format = "%Y%m%d")
+#test['UP_TIME'] = datetime.datetime.strftime("%Y%m%d",test['UP_TIME'])
+#pd.to_datetime(test['UP_TIME'], format = '%Y %m %d')
+#datetime.datetime.now().strftime("%Y%m%d")
+#test['UP_TIME'] = pd.to_datetime(test['UP_TIME'], format = '%Y%m%d')
+#test['UP_TIME_day'] = pd.to_datetime(test['UP_TIME'], format = '%d')
+#test['UP_TIME'] = str(test['UP_TIME'])
+print(test.head(100))
+print(test.shape)
+##############################################################################生成结果
+
+#test[test['UP_TIME' is None]] = '2018-03-15'
+#ty_data_1=test[pd.isnull(test["UP_TIME"])]
+#ty_data_2=test[pd.notnull(test["UP_TIME"])]
+print(test[['USER_ID','UP_TIME','HIS_UP_TIME1','AVE']])
+test['UP_TIME'] = pd.to_datetime(test['UP_TIME'], format = '%Y%m%d')
+test['UP_TIME'] = pd.to_datetime(test['UP_TIME'])#.apply(lambda x: x.split('-'))
+print(test.dtypes)
+result = test[['USER_ID','UP_TIME']].copy()
+result.to_csv('/mnt/sd01/sjjs_fs31/江苏1队_20180905_v1.csv',index=False,header=False)
+result_1 = pd.read_csv('/mnt/sd01/sjjs_fs31/江苏1队_20180905_v1.csv')
+result_1.columns = ['USER_ID','UP_TIME']
+result_1['UP_TIME'] = pd.to_datetime(result_1['UP_TIME']).apply(lambda x: x.split('-'))
+print(result_1.head(20))
+print(result_1.dtypes)
+#test['UP_TIME_1'] = test['UP_TIME']
+
+'''
+# 转为数组
+for i in range(test.shape[0]):
+#    test.UP_TIME[i] = str(test.UP_TIME[i])
+    timeArray = time.strptime(test.UP_TIME[i], "%Y%m%d")
+    test.UP_TIME_1[i] = (str(timeArray.tm_year)+str(timeArray.tm_mon)+str(timeArray.tm_mday))
+    print(test.UP_TIME_1[i])
+#str1 = "hi hello world"
+print(test.head(100))
+#print(str1.split(" "))
+'''
+#print (datetime.datetime.now().strftime("%Y%m%d"))
+'''
+print(type(str(test.UP_TIME[2])))    
+#timeArray = time.strptime(str(test.UP_TIME[2]), "%Y-%m-%d %H:%M:%S") 
+#test.UP_TIME[2] = time.strftime("%Y%m%d%H%M%S",test.UP_TIME[2])
+#test.UP_TIME[2]= (str(timeArray.tm_year)+str(timeArray.tm_mon)+str(timeArray.tm_mday))
+print(test.UP_TIME[2])
+'''
+'''
+#time_str = dt.strftime("%Y%m%d", ))
+#dt.strptime('2016-06-22',"%Y%m%d" date_format)
+import time
+for i in range(test.shape[0]):
+#    test.UP_TIME[i] = str(test.UP_TIME[i])
+    print(type(test.UP_TIME[i]))
+    test.UP_TIME[i] = time.strptime(test.UP_TIME[i], "%Y-%m-%d %H:%M:%S")
+    test.UP_TIME[i] = time.strftime("%Y%m%d",test.UP_TIME[i])
+    print(test.UP_TIME[i])
+#test['UP_TIME'] = str(test['UP_TIME'])
+#test['UP_TIME'] = time.strptime(test['UP_TIME'], "%Y-%m-%d") 
+#test['UP_TIME'] = time.strftime("%Y%m%d",test['UP_TIME'])
+#date.strftime("%Y%m%d",test['UP_TIME'])
+print(test[['USER_ID','UP_TIME','HIS_UP_TIME1','UP_TIME_1']])
+print(test.dtypes)
+'''
